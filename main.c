@@ -29,12 +29,36 @@ int main(int argc, char **argv)
     container.width = WIDTH;
     container.height = HEIGHT;
     container.head = NULL;
-    
-    double r;
-    unsigned int num_balls;
+
     time_t t;
     srand((unsigned) time(&t));
-   
+    
+    
+
+    simulate(RB, NA, NB, container);
+
+
+    struct Sphere s0, s1;
+    s0.x = 5;
+    s0.y = 5;
+    s0.z = 0;
+    s0.radius = 2;
+    s1.radius = 3;
+    s1.x = 8;
+    s1.y = 9;
+    s1.z = 0;
+    printf(collide_z(s0, s1) ? "collide\n" : "fine\n");
+
+
+    printf("%d\n", LENGTH*WIDTH*HEIGHT);
+
+    return 0;
+}
+
+void simulate(double Rb, unsigned int Na, unsigned int Nb, struct Container container)
+{
+    double r;
+    unsigned int num_balls;
     double x_init, y_init;
     double x_final, y_final;
     /* dropping balls 
@@ -57,26 +81,9 @@ int main(int argc, char **argv)
         /* update the container */
         update_container(sphere, &container);
     }
-
-
-
-
-    struct Sphere s0, s1;
-    s0.x = 5;
-    s0.y = 5;
-    s0.z = 0;
-    s0.radius = 2;
-    s1.radius = 3;
-    s1.x = 8;
-    s1.y = 9;
-    s1.z = 0;
-    printf(collide_z(s0, s1) ? "collide\n" : "fine\n");
-
-
-    printf("%d\n", LENGTH*WIDTH*HEIGHT);
-
-    return 0;
 }
+
+
 /*
   Pick a ball randomly. The probability is proportional to 
   the number of balls. The function returns the radius of 

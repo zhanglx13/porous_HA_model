@@ -29,3 +29,4 @@ void rand_init_position(double *, double *, struct Container, double);
 void update_sphere(struct Sphere*, struct Container);
 void update_container(struct Sphere, struct Container*);
 bool collide_z(struct Sphere, struct Sphere);
+void simulate(double, unsigned int, unsigned int, struct Container);
