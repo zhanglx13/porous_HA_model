@@ -5,23 +5,6 @@
 
 #include "header.h"
 
-#define RAND0(bound)        \
-    (double)rand()*(double)(bound) / (double)RAND_MAX
-    
-
-
-#define LENGTH   150
-#define HEIGHT   150
-#define WIDTH    150
-
-#define RA       5
-#define RB       50
-
-#define NA      50
-#define NB      100
-
-
-
 int main(int argc, char **argv)
 {
     struct Container container;
@@ -33,103 +16,98 @@ int main(int argc, char **argv)
     time_t t;
     srand((unsigned) time(&t));
     
-    
+    simulate(RB, NA, NB, &container);
 
-    simulate(RB, NA, NB, container);
-
-
-    struct Sphere s0, s1;
-    s0.x = 5;
-    s0.y = 5;
-    s0.z = 0;
-    s0.radius = 2;
-    s1.radius = 3;
-    s1.x = 8;
-    s1.y = 9;
-    s1.z = 0;
-    printf(collide_z(s0, s1) ? "collide\n" : "fine\n");
-
-
-    printf("%d\n", LENGTH*WIDTH*HEIGHT);
+    printf(test_overlap(container)? "overlap!!!\n" : "no overlap\n");
+    logistic(container);
 
     return 0;
 }
 
-void simulate(double Rb, unsigned int Na, unsigned int Nb, struct Container container)
+void simulate(double Rb, unsigned int Na, unsigned int Nb, struct Container *container)
 {
     double r;
     unsigned int num_balls;
     double x_init, y_init;
-    double x_final, y_final;
+ 
     /* dropping balls 
      * Simulation terminates when either NA + NB balls are dropped 
      * or the container is full
      */
-    for (num_balls = 0 ; num_balls < NA+NB ; num_balls++){
+    for (num_balls = 0 ; num_balls < 10 ; num_balls++){
         /* randomly choose a ball according to NA and NB */
         r = rand_ball(NA, NB, RA, RB);
+        //printf("r = %.3lf\n", r);
         /* randomly choose the initial position of the ball */
-        rand_init_position(&x_init, &y_init, container, r);
+        rand_init_position(&x_init, &y_init, *container, r);
+        //printf("x_init = %.3lf, y_init = %.3lf\n", x_init, y_init);
         /* construct the sphere */
-        struct Sphere sphere;
-        sphere.radius = r;
-        sphere.x = x_init;
-        sphere.y = y_init;
-        sphere.z = container.height;
+        struct Sphere *sphere = (struct Sphere*)malloc(sizeof(struct Sphere));
+        sphere->radius = r;
+        sphere->x = x_init;
+        sphere->y = y_init;
+        sphere->z = container->height;
         /* Compute the final position of the ball */
-        update_sphere(&sphere, container);
+        update_sphere(sphere, container);
         /* update the container */
-        update_container(sphere, &container);
+        update_container(sphere, container);
     }
 }
 
-
-/*
-  Pick a ball randomly. The probability is proportional to 
-  the number of balls. The function returns the radius of 
-  the picked ball
-  @param Na: number of ball A
-  @param Nb: number of ball B
-  @param Ra: radius of ball A
-  @param Rb: radius of ball B
-  @return radius of the picked ball
- */
-double rand_ball(unsigned int Na, unsigned int Nb, double Ra, double Rb)
+void update_sphere(struct Sphere *sphere, struct Container *container)
 {
-    double rd = RAND0(Na + Nb);
-    if (rd <= Na)
-        return Ra;
-    else
-        return Rb;
-}
-
-/*
- *  Choose a random initial position for the ball
- */
-void rand_init_position(double *x, double *y, struct Container container, double r)
-{
-    *x = RAND0(container.length - 2*r);
-    *x += r;
-    *y = RAND0(container.width - 2*r);
-    *y += r;
-}
-
-void update_sphere(struct Sphere *sphere, struct Container container)
-{
+    struct Sphere * first_sphere = (struct Sphere*)malloc(sizeof(struct Sphere));
+    struct Sphere * second_sphere = (struct Sphere*)malloc(sizeof(struct Sphere));
+    struct Sphere * third_sphere = (struct Sphere*)malloc(sizeof(struct Sphere));
     
-}
-
-void update_container(struct Sphere sphere, struct Container *container)
-{
+    first_sphere = find_first_collision(sphere, container);
+    // If no other balls collide with this one, this ball will drop to the bottom
+    if(first_sphere == NULL){
+        sphere->z = sphere->radius;
+    }
+    else{
+        // collision between sphere and first_sphere
+        sphere->z = compute_z_collide(first_sphere, sphere);
+    }
+        
     
 }
 
 /*
- *   Test whether two spheres collide when projected in the x-y plane
+ *  The sphere is in its initial position. Then it drops along the z axis.
+ *  The function will stop the sphere the first time it collides with either
+ *  another sphere or the bottom of the container.
+ *  The function returns truethe pointer to the sphere that this sphere hits
+ *  or NULL if the sphere hits the bottom.
  */
-bool collide_z(struct Sphere s0, struct Sphere s1)
+struct Sphere * find_first_collision(struct Sphere *sphere, struct Container *container)
 {
-    double delta_x = s0.x - s1.x;
-    double delta_y = s0.y - s1.y;
-    return sqrt(delta_x * delta_x + delta_y * delta_y) < (s0.radius + s1.radius) ? true : false; 
+    struct sphere_list *slist = container->head;
+    struct Sphere *sphere_hit = (struct Sphere*)malloc(sizeof(struct Sphere));
+    sphere_hit = NULL;
+    double z_max = sphere->radius;
+    double z_collide;
+    while(slist != NULL){
+        if (collide_z(*sphere, *(slist->sphere))){
+            z_collide = compute_z_collide( slist->sphere, sphere );
+            if(z_collide > z_max){
+                z_max = z_collide;
+                sphere_hit = slist->sphere;
+            }
+        }
+        slist = slist->next;
+    }
+    return sphere_hit;
 }
+
+/*
+ *  After we find the first collision, we are now trying to find the second.
+ *  The first collision ball is also passed as the arg.
+ *  The function returns the pointer to the found second collision sphere
+ *  or NULL if no second sphere found.
+ */
+struct Sphere * find_second_collision(struct Sphere *sphere, struct Sphere *first_sphere, struct Container *container)
+{
+    
+}
+
