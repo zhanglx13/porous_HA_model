@@ -5,6 +5,8 @@
 #define HEIGHT   1500
 #define WIDTH    1500
 
+#define NBALLS  200
+
 #define RA       5
 #define RB       50
 
@@ -28,6 +30,7 @@ struct Sphere
     double y;
     double z;
     double radius;
+    unsigned int id;
 };
 
 struct sphere_list
@@ -44,7 +47,7 @@ void update_container(struct Sphere*, struct Container*);
 bool collide_z(struct Sphere, struct Sphere);
 void simulate(double, unsigned int, unsigned int, struct Container *);
 struct Sphere * find_first_collision(struct Sphere *, struct Container *);
-struct Sphere * find_second_collision(struct Shpere *);
+struct Sphere * find_second_collision(struct Sphere *, struct Sphere *, struct Container *);
 
 /* helper functions */
 bool test_overlap(struct Container);
@@ -52,6 +55,8 @@ bool overlap(struct Sphere, struct Sphere);
 void logistic(struct Container);
 void ball_info(struct Container, double, double, unsigned int*, unsigned int*);
 double compute_z_collide(struct Sphere *, struct Sphere *);
+bool safe_container_boundary_sphere(struct Container *, struct Sphere *);
+bool test_sphere_safety(struct Container *, struct Sphere *);
 
 
 
@@ -87,38 +92,72 @@ void rand_init_position(double *x, double *y, struct Container container, double
 
 /*
  *   Test whether two spheres collide when projected in the x-y plane
+ *   s1 should below s0
  */
 bool collide_z(struct Sphere s0, struct Sphere s1)
 {
     double delta_x = s0.x - s1.x;
     double delta_y = s0.y - s1.y;
-    return sqrt(delta_x * delta_x + delta_y * delta_y) < (s0.radius + s1.radius) ? true : false; 
+    double dist = delta_x * delta_x + delta_y * delta_y - (s0.radius + s1.radius)*(s0.radius + s1.radius);
+    return  ( dist < -0.00001 ) && (s1.z < s0.z)  ? true : false; 
 }
 
-
+/*
+ *  Test if two balls collide
+ */
 bool overlap(struct Sphere s0, struct Sphere s1)
 {
     double delta_x = s0.x - s1.x;
     double delta_y = s0.y - s1.y;
-    double delta_z = s0.z - s1.z;
-    return sqrt(delta_x * delta_x + delta_y * delta_y + delta_z * delta_z) < (s0.radius + s1.radius) ? true : false;
+    double delta_z = s0.z - s1.z; 
+    double dist = delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
+    double sum_radius = (s0.radius + s1.radius)*(s0.radius + s1.radius);
+    double diff = dist - sum_radius;
+    // Due to the existance of numerical error, the condition for overlap is released.
+    return  diff < - 0.0001 ? true : false;
 }
 
+
+/*
+ *  Test if any two balls collide in the container
+ */
 bool test_overlap(struct Container container)
 {
     struct sphere_list *first, *second;
     first = container.head;
     second = container.head;
     while(first != NULL){
+        // first test container boudary safety
+        if (!safe_container_boundary_sphere(&container, first->sphere))
+            return true;
+        // second test if two balls collide
         second = first->next;
         while(second != NULL){
-            if (overlap(*(first->sphere), *(second->sphere))) 
+            if (overlap(*(first->sphere), *(second->sphere)))
                 return true;
             second = second->next;
         }
         first = first->next;
     }
     return false;
+}
+
+
+/*
+ *  Test if the position of the sphere is safe in the container
+ *  (The sphere is not included in the container yet)
+ */
+bool test_sphere_safety(struct Container *container, struct Sphere *sphere)
+{
+    if (!safe_container_boundary_sphere(container, sphere))
+        return false;
+    struct sphere_list *slist = container->head;
+    while (slist != NULL){
+        if (overlap(*sphere, *(slist->sphere) ))
+            return false;
+        slist = slist->next;
+    }
+    return true;
 }
 
 
@@ -148,7 +187,8 @@ void logistic(struct Container container)
     if (ptr == NULL)
         printf("Empty container\n");
     while(ptr != NULL){
-        printf("(%.3lf, %.3lf, %.3lf, %.3lf)\n", ptr->sphere->x, ptr->sphere->y, ptr->sphere->z, ptr->sphere->radius);
+        printf("ball %u: (%.3lf, %.3lf, %.3lf, %.3lf)\n", 
+               ptr->sphere->id, ptr->sphere->x, ptr->sphere->y, ptr->sphere->z, ptr->sphere->radius);
         ptr = ptr->next;
     }
 }
@@ -180,4 +220,12 @@ double compute_z_collide(struct Sphere *s0, struct Sphere *s1)
                 - (s0->x - s1->x)*(s0->x - s1->x)                  //(x-x`)^2
                 - (s0->y - s1->y)*(s0->y - s1->y) )                //(y-y`)^2
             + s0->z;
+}
+
+bool safe_container_boundary_sphere(struct Container *container, struct Sphere *sphere)
+{
+    return (   (sphere->x + sphere->radius <= container->length) && (sphere->x >= sphere->radius)
+            && (sphere->y + sphere->radius <= container->width)  && (sphere->y >= sphere->radius)
+            && (sphere->z + sphere->radius <= container->height) && (sphere->z >= sphere->radius)) 
+            ? true : false;
 }
