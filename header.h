@@ -5,8 +5,7 @@
 #define HEIGHT   1500
 #define WIDTH    1500
 
-#define NBALLS  200
-
+#define NBALLS  100
 #define RA       5
 #define RB       50
 
@@ -40,6 +39,10 @@ struct sphere_list
 };
 
 
+#define HIT_BOTTOM   0
+#define HIT_WALL     1
+
+
 double rand_ball(unsigned int, unsigned int, double, double);
 void rand_init_position(double *, double *, struct Container, double);
 void update_sphere(struct Sphere*, struct Container *);
@@ -47,7 +50,8 @@ void update_container(struct Sphere*, struct Container*);
 bool collide_z(struct Sphere, struct Sphere);
 void simulate(double, unsigned int, unsigned int, struct Container *);
 struct Sphere * find_first_collision(struct Sphere *, struct Container *);
-struct Sphere * find_second_collision(struct Sphere *, struct Sphere *, struct Container *);
+struct Sphere * find_second_collision(struct Sphere *, struct Sphere *, struct Container *, int *);
+double z_collide_two(Struct Sphere *, Struct Sphere *, double );
 
 /* helper functions */
 bool test_overlap(struct Container);
@@ -114,6 +118,16 @@ bool overlap(struct Sphere s0, struct Sphere s1)
     double sum_radius = (s0.radius + s1.radius)*(s0.radius + s1.radius);
     double diff = dist - sum_radius;
     // Due to the existance of numerical error, the condition for overlap is released.
+    if (diff < -0.0001){
+        // printf("Ball %u (%.3lf, %.3lf, %.3lf) collides with ball %u (%.3lf, %.3lf, %.3lf)\n", s0.id, s0.x, s0.y, s0.z, s1.id, s1.x, s1.y, s1.z );
+        // printf("dist = %.3lf\n", dist);
+        // printf("sum_radius = %.3lf\n", sum_radius);
+        // //exit(1);
+        return true;
+    }
+    else{
+        return false;
+    }
     return  diff < - 0.0001 ? true : false;
 }
 

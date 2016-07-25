@@ -101,12 +101,15 @@ void update_sphere(struct Sphere *sphere, struct Container *container)
             printf("Ball %u overlaps with ball %u\n", first_sphere->id, sphere->id);
         printf("ball %u(%.3lf, %.3lf, %.3lf) and %u(%.3lf, %.3lf, %.3lf) collided\n", first_sphere->id, first_sphere->x, first_sphere->y, first_sphere->z, sphere->id, sphere->x, sphere->y, sphere->z);
         struct Sphere * second_sphere = (struct Sphere*)malloc(sizeof(struct Sphere));
-        second_sphere = find_second_collision(sphere, first_sphere, container);
-        if (second_sphere == NULL){
+        int flag = -1;
+        second_sphere = find_second_collision(sphere, first_sphere, container, &flag);
+        if ( (second_sphere == NULL) && (flag != HIT_WALL) ){
             free(second_sphere);
-            update_sphere(sphere, container);
+            if (flag != HIT_BOTTOM)
+                // only when the ball does not hit the bottom
+                update_sphere(sphere, container);
         }
-        else{
+        else{ // need to find the third collision if the sphere hits the wall or hits the second sphere
             //sphere->z = container->height;
         }
     }
@@ -147,7 +150,7 @@ struct Sphere * find_first_collision(struct Sphere *sphere, struct Container *co
  *  The function returns the pointer to the found second collision sphere
  *  or NULL if no second sphere found.
  */
-struct Sphere * find_second_collision(struct Sphere *sphere, struct Sphere *first_sphere, struct Container *container)
+struct Sphere * find_second_collision(struct Sphere *sphere, struct Sphere *first_sphere, struct Container *container, int *flag)
 {
     /****************************************************************
      * stage 1:
@@ -196,7 +199,46 @@ struct Sphere * find_second_collision(struct Sphere *sphere, struct Sphere *firs
      *     If no free position is found in stage 1, we try to test if 
      *     the shere can hit the bottom
      ********************************************************************/
-    
+    // When the sphere can hit the bottom, it must satisfy the following conditions:
+    // 1. sphere->radius  >  first_sphere->radius
+    // 2. first_sphere->z = first_sphere->radius
+    if ( (r1 > r0) && (first_sphere->z == r0) ){
+        double r = sqrt( (r0+r1)*(r0+r1) - (r1-r0)*(r1-r0) );
+        start_pos = first_sphere->x + r;
+        end_pos = first_sphere->x -r;
+        // initial position
+        sphere->x = start_pos;
+        sphere->y = first_sphere->y;
+        sphere->z = r1;
+        // step setup
+        steps = 1000.0;
+        range = 2.0 * r;
+        delta_x = range / steps;
+        // test initial position
+        if (test_sphere_safety(container, sphere)){
+            *flag = HIT_BOTTOM;
+            return NULL;
+        }
+        sphere->x = sphere->x - delta_x;
+        while(sphere->x >= end_pos){
+            y_cord = sqrt( r*r - (sphere->x - first_sphere->x)*(sphere->x - first_sphere->x) );
+            // test the up position
+            sphere->y = first_sphere->y + y_cord;
+            if (test_sphere_safety(container, sphere)){
+                *flag = HIT_BOTTOM;
+                return NULL;
+            }
+            // test the down position
+            sphere->y = first_sphere->y - y_cord;
+            if (test_sphere_safety(container, sphere)){
+                *flag = HIT_BOTTOM;
+                return NULL;
+            }
+            // if the current position is not safe
+            // compute the next position
+            sphere->x = sphere->x - delta_x;
+        }
+    }
 
     /********************************************************************
      * stage 3:
@@ -209,13 +251,41 @@ struct Sphere * find_second_collision(struct Sphere *sphere, struct Sphere *firs
     sphere->y = y_init;
     sphere->z = z_init;
     
+    struct sphere_list *slist = container->head;
+    struct Sphere *sphere_hit = (struct Sphere*)malloc(sizeof(struct Sphere));
+    sphere_hit = NULL;
+    double z_min = sphere->z;
+    double z_collide;
+    double dist;
+    while( slist != NULL ){
+        if (slist->sphere->id != first_sphere->id){
+            dist = (slist->sphere->x - first_sphere->x)*(slist->sphere->x - first_sphere->x) +
+                   (slist->sphere->y - first_sphere->y)*(slist->sphere->y - first_sphere->y) +
+                   (slist->sphere->z - first_sphere->z)*(slist->sphere->z - first_sphere->z);
+            if ( dist <= (r0 + r1 + r1)*(r0 + r1 + r1) ){
+                
+            }
+        }
 
 
-
-
-
-    return first_sphere;
+    return sphere_hit;
 
 
 }
 
+
+
+double z_collide_two(Struct Sphere *s0, Struct Sphere *s1, double r)
+{
+    double x0 = s0->x;
+    double y0 = s0->y;
+    double z0 = s0->z;
+    double r0 = s0->radius;
+    double x1 = s1->x;
+    double y1 = s1->y;
+    double z1 = s1->z;
+    double r1 = s1->radius;
+
+    
+    
+}
