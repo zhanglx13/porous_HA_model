@@ -51,7 +51,7 @@ bool collide_z(struct Sphere, struct Sphere);
 void simulate(double, unsigned int, unsigned int, struct Container *);
 struct Sphere * find_first_collision(struct Sphere *, struct Container *);
 struct Sphere * find_second_collision(struct Sphere *, struct Sphere *, struct Container *, int *);
-double z_collide_two(Struct Sphere *, Struct Sphere *, double );
+double z_collide_two(struct Sphere *, struct Sphere *, double );
 
 /* helper functions */
 bool test_overlap(struct Container);

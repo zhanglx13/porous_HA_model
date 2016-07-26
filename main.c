@@ -251,31 +251,35 @@ struct Sphere * find_second_collision(struct Sphere *sphere, struct Sphere *firs
     sphere->y = y_init;
     sphere->z = z_init;
     
-    struct sphere_list *slist = container->head;
-    struct Sphere *sphere_hit = (struct Sphere*)malloc(sizeof(struct Sphere));
-    sphere_hit = NULL;
-    double z_min = sphere->z;
-    double z_collide;
-    double dist;
-    while( slist != NULL ){
-        if (slist->sphere->id != first_sphere->id){
-            dist = (slist->sphere->x - first_sphere->x)*(slist->sphere->x - first_sphere->x) +
-                   (slist->sphere->y - first_sphere->y)*(slist->sphere->y - first_sphere->y) +
-                   (slist->sphere->z - first_sphere->z)*(slist->sphere->z - first_sphere->z);
-            if ( dist <= (r0 + r1 + r1)*(r0 + r1 + r1) ){
+    /* struct sphere_list *slist = container->head; */
+    /* struct Sphere *sphere_hit = (struct Sphere*)malloc(sizeof(struct Sphere)); */
+    /* sphere_hit = NULL; */
+    /* double z_min = sphere->z; */
+    /* double z_collide; */
+    /* double dist; */
+    /* while( slist != NULL ){ */
+    /*     if (slist->sphere->id != first_sphere->id){ */
+    /*         dist = (slist->sphere->x - first_sphere->x)*(slist->sphere->x - first_sphere->x) + */
+    /*                (slist->sphere->y - first_sphere->y)*(slist->sphere->y - first_sphere->y) + */
+    /*                (slist->sphere->z - first_sphere->z)*(slist->sphere->z - first_sphere->z); */
+    /*         if ( dist <= (r0 + r1 + r1)*(r0 + r1 + r1) ){ */
                 
-            }
-        }
+    /*         } */
+    /*     } */
+    /* } */
 
-
-    return sphere_hit;
-
-
+    //return sphere_hit;
+    return NULL;
 }
 
 
 
-double z_collide_two(Struct Sphere *s0, Struct Sphere *s1, double r)
+
+/*   Given the position of two spheres s0 and s1, and the third sphere's radius
+ *   this function computes the largest z coord when the third sphere collides
+ *   with both s0 and s1.
+ */
+double z_collide_two(struct Sphere *s0, struct Sphere *s1, double r)
 {
     double x0 = s0->x;
     double y0 = s0->y;
@@ -286,6 +290,51 @@ double z_collide_two(Struct Sphere *s0, Struct Sphere *s1, double r)
     double z1 = s1->z;
     double r1 = s1->radius;
 
-    
-    
+    // This problem is modeled as the following problem
+    // Given two points of a triangle on the plane, also
+    // given the three sides of the triangle, can we 
+    // compute the coord of the third point?
+    /*
+                     C
+                     /\
+                    /  \
+                   /    \
+                  /      \
+               A +--------+ B
+        
+        Given: A(0, 0), B(xb, yb), 
+               |AB| = |(xb,yb)|
+               |AC| = r0 + r
+               |BC| = r1 + r
+        Solve: C(xc, yc)
+
+    */
+    // Compute coord of B
+    double xb, yb;
+    xb = sqrt( (x0-x1)*(x0-x1) + (y0-y1)*(y0-y1) );
+    yb = z1-z0;
+    // Define the sides
+    double AB = sqrt(xb*xb + yb*yb);
+    double AC = r0+r;
+    double BC = r1+r;
+    // We first test if the triangle is a line
+    double dist = AC+BC-AB;
+    if ( dist*dist < 0.0000001 )
+        return (BC*z0 + AC*z1)/(AB);
+    // Then we test if the given points can form a triangle
+    if ( dist < -0.00001 )
+        return -1;
+    // Then we try to solve the triangle by solving the following equations:
+    //  xc^2 + yc^2 = AC^2
+    //  (xb-xc)^2 + (yb-yc)^2 = BC^2
+    double p1 = (xb*xb+yb*yb+AC*AC-BC*BC)/(2.0*xb);
+    double p2 = yb/xb;
+    double a = p2*p2+1;
+    double b = -2.0*p1*p2;
+    double c = p1*p1-AC*AC;
+    double yc = (-b+sqrt(b*b-4.0*a*c))/(2.0*a);
+    double xc = p1-p2*yc;
+
+
+    return yc + z0;
 }
