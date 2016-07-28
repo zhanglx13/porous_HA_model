@@ -16,12 +16,25 @@ int main(int argc, char **argv)
     time_t t;
     srand((unsigned) time(&t));
     
-    simulate(RB, NA, NB, &container);
-
+    /* simulate(RB, NA, NB, &container); */
     
-    logistic(container);
+    /* logistic(container); */
 
-    printf(test_overlap(container)? "overlap!!!\n" : "no overlap\n");
+    /* printf(test_overlap(container)? "overlap!!!\n" : "no overlap\n"); */
+
+    struct Sphere s0, s1;
+    s0.x = 50.0;
+    s0.y = 80.0;
+    s0.z = 100.0;
+    s0.radius = 45;
+    s0.id = 0;
+    s1.x = 150;
+    s1.y = 80.0;
+    s1.z = 40;
+    s1.radius = 35;
+    s1.id = 1;
+    printf("%.3lf\n", s0.x);
+    printf("result = %.3lf\n", z_collide_two(&s0, &s1, 25.0));
 
     return 0;
 }
@@ -317,7 +330,15 @@ double z_collide_two(struct Sphere *s0, struct Sphere *s1, double r)
     double AB = sqrt(xb*xb + yb*yb);
     double AC = r0+r;
     double BC = r1+r;
-    // We first test if the triangle is a line
+    
+    printf("xb = %.3lf\n", xb);
+    printf("yb = %.3lf\n", yb);
+    
+    printf("AB = %.3lf\n", AB);
+    printf("AC = %.3lf\n", AC);
+    printf("BC = %.3lf\n", BC);
+    
+    // We first test if the triangle is a line    
     double dist = AC+BC-AB;
     if ( dist*dist < 0.0000001 )
         return (BC*z0 + AC*z1)/(AB);
@@ -334,6 +355,14 @@ double z_collide_two(struct Sphere *s0, struct Sphere *s1, double r)
     double c = p1*p1-AC*AC;
     double yc = (-b+sqrt(b*b-4.0*a*c))/(2.0*a);
     double xc = p1-p2*yc;
+
+    printf("xc = %.3lf\n", xc);
+    printf("yc = %.3lf\n", yc);
+    
+    double err1 = AC*AC - xc*xc - yc*yc;
+    double err2 = BC*BC - (xb-xc)*(xb-xc) - (yb-yc)*(yb-yc);
+    printf("err1 = %.3lf\n", err1);
+    printf("err2 = %.3lf\n", err2);
 
 
     return yc + z0;
