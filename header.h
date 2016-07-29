@@ -5,7 +5,7 @@
 #define HEIGHT   1500
 #define WIDTH    1500
 
-#define NBALLS  100
+#define NBALLS  300
 #define RA       5
 #define RB       50
 
@@ -39,8 +39,9 @@ struct sphere_list
 };
 
 
-#define HIT_BOTTOM   0
-#define HIT_WALL     1
+#define HIT_BOTTOM     0
+#define HIT_WALL_X     1
+#define HIT_WALL_Y     2
 
 
 double rand_ball(unsigned int, unsigned int, double, double);
@@ -51,7 +52,8 @@ bool collide_z(struct Sphere, struct Sphere);
 void simulate(double, unsigned int, unsigned int, struct Container *);
 struct Sphere * find_first_collision(struct Sphere *, struct Container *);
 struct Sphere * find_second_collision(struct Sphere *, struct Sphere *, struct Container *, int *);
-double z_collide_two(struct Sphere *, struct Sphere *, double );
+struct Sphere * find_third_collision();
+double z_collide_two(struct Sphere *, struct Sphere *, double, double*, double*);
 
 /* helper functions */
 bool test_overlap(struct Container);
@@ -193,6 +195,7 @@ void logistic(struct Container container)
 {
     unsigned int numA, numB;
     ball_info(container, RA, RB, &numA, &numB);
+    printf("##########################################\n");
     printf("Container's dim: (%.3lf, %.3lf, %.3lf)\n", container.length, container.width, container.height);
     printf("#Ball A: %u\n", numA);
     printf("#Ball B: %u\n", numB);
@@ -242,4 +245,93 @@ bool safe_container_boundary_sphere(struct Container *container, struct Sphere *
             && (sphere->y + sphere->radius <= container->width)  && (sphere->y >= sphere->radius)
             && (sphere->z + sphere->radius <= container->height) && (sphere->z >= sphere->radius)) 
             ? true : false;
+}
+
+
+/*   Given the position of two spheres s0 and s1, and the third sphere's radius
+ *   this function computes the largest z coord when the third sphere collides
+ *   with both s0 and s1.
+ */
+double z_collide_two(struct Sphere *s0, struct Sphere *s1, double r, double *x, double *y)
+{
+    double x0 = s0->x;
+    double y0 = s0->y;
+    double z0 = s0->z;
+    double r0 = s0->radius;
+    double x1 = s1->x;
+    double y1 = s1->y;
+    double z1 = s1->z;
+    double r1 = s1->radius;
+
+    // This problem is modeled as the following problem
+    // Given two points of a triangle on the plane, also
+    // given the three sides of the triangle, can we 
+    // compute the coord of the third point?
+    /*
+                     C
+                     /\
+                    /  \
+                   /    \
+                  /      \
+               A +--------+ B
+        
+        Given: A(0, 0), B(xb, yb), 
+               |AB| = |(xb,yb)|
+               |AC| = r0 + r
+               |BC| = r1 + r
+        Solve: C(xc, yc)
+
+    */
+    // Compute coord of B
+    double xb, yb;
+    xb = sqrt( (x0-x1)*(x0-x1) + (y0-y1)*(y0-y1) );
+    yb = z1-z0;
+    // Define the sides
+    double AB = sqrt(xb*xb + yb*yb);
+    double AC = r0+r;
+    double BC = r1+r;
+    
+    /* printf("xb = %.3lf\n", xb); */
+    /* printf("yb = %.3lf\n", yb); */
+    
+    /* printf("AB = %.3lf\n", AB); */
+    /* printf("AC = %.3lf\n", AC); */
+    /* printf("BC = %.3lf\n", BC); */
+    
+    // We first test if the triangle is a line    
+    double dist = AC+BC-AB;
+    if ( dist*dist < 0.0000001 )
+        return (BC*z0 + AC*z1)/(AB);
+    // Then we test if the given points can form a triangle
+    if ( dist < -0.00001 )
+        return -1;
+    // Then we try to solve the triangle by solving the following equations:
+    //  xc^2 + yc^2 = AC^2
+    //  (xb-xc)^2 + (yb-yc)^2 = BC^2
+    double p1 = (xb*xb+yb*yb+AC*AC-BC*BC)/(2.0*xb);
+    double p2 = yb/xb;
+    double a = p2*p2+1;
+    double b = -2.0*p1*p2;
+    double c = p1*p1-AC*AC;
+    double yc = (-b+sqrt(b*b-4.0*a*c))/(2.0*a);
+    double xc = p1-p2*yc;
+
+    /* printf("xc = %.3lf\n", xc); */
+    /* printf("yc = %.3lf\n", yc); */
+    
+    /* double err1 = AC*AC - xc*xc - yc*yc; */
+    /* double err2 = BC*BC - (xb-xc)*(xb-xc) - (yb-yc)*(yb-yc); */
+    /* printf("err1 = %.3lf\n", err1); */
+    /* printf("err2 = %.3lf\n", err2); */
+
+    //
+    // Now compute the coordinates of the sphere in the absolute space
+    //
+    double p = (x1-x0)*xc/xb;
+    double q = (y1-y0)*xc/xb;
+    *x = x0 + p;
+    *y = y0 + q;
+
+
+    return yc + z0;
 }
