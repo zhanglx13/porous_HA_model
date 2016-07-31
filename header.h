@@ -5,7 +5,7 @@
 #define HEIGHT   1500
 #define WIDTH    1500
 
-#define NBALLS  300
+#define NBALLS  500
 #define RA       5
 #define RB       50
 
@@ -42,6 +42,7 @@ struct sphere_list
 #define HIT_BOTTOM     0
 #define HIT_WALL_X     1
 #define HIT_WALL_Y     2
+#define HIT_WALL       3
 
 
 double rand_ball(unsigned int, unsigned int, double, double);
@@ -52,8 +53,12 @@ bool collide_z(struct Sphere, struct Sphere);
 void simulate(double, unsigned int, unsigned int, struct Container *);
 struct Sphere * find_first_collision(struct Sphere *, struct Container *);
 struct Sphere * find_second_collision(struct Sphere *, struct Sphere *, struct Container *, int *);
-struct Sphere * find_third_collision();
+struct Sphere * find_third_collision(struct Sphere *, struct Sphere *, struct Sphere *, struct Container *);
 double z_collide_two(struct Sphere *, struct Sphere *, double, double*, double*);
+void solve_x_y(struct Sphere*, struct Sphere* , struct Sphere* , double, double *, double*, double*, double*);
+double compute_z_min(struct Sphere *, struct Sphere *, struct Sphere *);
+double compute_z_max(struct Sphere *, struct Sphere *, struct Sphere *);
+
 
 /* helper functions */
 bool test_overlap(struct Container);
@@ -63,7 +68,36 @@ void ball_info(struct Container, double, double, unsigned int*, unsigned int*);
 double compute_z_collide(struct Sphere *, struct Sphere *);
 bool safe_container_boundary_sphere(struct Container *, struct Sphere *);
 bool test_sphere_safety(struct Container *, struct Sphere *);
+bool test_collide(struct Sphere *, struct Sphere *, struct Sphere *);
+struct Sphere* first_collision(struct Sphere*, struct Container*, int *);
+bool touch(struct Sphere*, struct Sphere*);
 
+bool touch(struct Sphere* s0, struct Sphere* s1)
+{
+    double dist = (s0->x-s1->x)*(s0->x-s1->x)+
+                  (s0->y-s1->y)*(s0->y-s1->y)+
+                  (s0->z-s1->z)*(s0->z-s1->z);
+    double err = dist - (s0->radius + s1->radius)*(s0->radius + s1->radius);
+    if (err * err < 0.00001)
+        return true;
+    else 
+        return false;
+}
+
+
+struct Sphere* first_collision(struct Sphere* s, struct Container* container, int *flag)
+{
+    struct sphere_list *slist = container->head;
+    while (slist != NULL){
+        if (touch(s, slist->sphere)){
+            return slist->sphere;
+        }
+        slist = slist->next;
+    }
+    if (!safe_container_boundary_sphere(container, s) )
+        *flag = HIT_WALL;
+    return NULL;
+}
 
 
 /*
@@ -145,12 +179,19 @@ bool test_overlap(struct Container container)
     while(first != NULL){
         // first test container boudary safety
         if (!safe_container_boundary_sphere(&container, first->sphere))
+        {
+            printf("sphere %u (%.3lf, %.3lf, %.3lf, %.3lf) hit the container!!\n", first->sphere->id, first->sphere->x, first->sphere->y, first->sphere->z, first->sphere->radius);
             return true;
+        }
         // second test if two balls collide
         second = first->next;
         while(second != NULL){
-            if (overlap(*(first->sphere), *(second->sphere)))
+            if (overlap(*(first->sphere), *(second->sphere))){
+                printf("ball %u(%.3lf, %.3lf, %.3lf, %.3lf) and %u(%.3lf, %.3lf, %.3lf, %.3lf) collided\n", 
+               first->sphere->id, first->sphere->x, first->sphere->y, first->sphere->z, first->sphere->radius, 
+               second->sphere->id, second->sphere->x, second->sphere->y, second->sphere->z, second->sphere->radius);
                 return true;
+            }
             second = second->next;
         }
         first = first->next;
@@ -300,11 +341,17 @@ double z_collide_two(struct Sphere *s0, struct Sphere *s1, double r, double *x, 
     
     // We first test if the triangle is a line    
     double dist = AC+BC-AB;
-    if ( dist*dist < 0.0000001 )
+    if ( dist*dist < 0.0000001 ){
+        printf("The triangle is a line!!!\n");
+        *x = (x0*BC + x1*AC) / AB;
+        *y = (y0*BC + y1*AC) / AB;
         return (BC*z0 + AC*z1)/(AB);
+    }
     // Then we test if the given points can form a triangle
-    if ( dist < -0.00001 )
+    if ( dist < -0.00001 ){
+        printf("The given points cannot form a triangle!!!\n");
         return -1;
+    }
     // Then we try to solve the triangle by solving the following equations:
     //  xc^2 + yc^2 = AC^2
     //  (xb-xc)^2 + (yb-yc)^2 = BC^2
@@ -335,3 +382,64 @@ double z_collide_two(struct Sphere *s0, struct Sphere *s1, double r, double *x, 
 
     return yc + z0;
 }
+
+/*
+ *  The sphere is in its initial position. Then it drops along the z axis.
+ *  The function will stop the sphere the first time it collides with either
+ *  another sphere or the bottom of the container.
+ *  The function returns truethe pointer to the sphere that this sphere hits
+ *  or NULL if the sphere hits the bottom.
+ */
+struct Sphere * find_first_collision(struct Sphere *sphere, struct Container *container)
+{
+    struct sphere_list *slist = container->head;
+    struct Sphere *sphere_hit = (struct Sphere*)malloc(sizeof(struct Sphere));
+    sphere_hit = NULL;
+    double z_max = sphere->radius;
+    double z_collide;
+    while(slist != NULL){
+        if (collide_z(*sphere, *(slist->sphere))){
+            z_collide = compute_z_collide( slist->sphere, sphere );
+            if(z_collide > z_max){
+                z_max = z_collide;
+                sphere_hit = slist->sphere;
+            }
+        }
+        slist = slist->next;
+    }
+    return sphere_hit;
+}
+
+
+
+bool test_collide(struct Sphere *s0, struct Sphere *s1, struct Sphere *s2)
+{
+    double x0 = s0->x;
+    double y0 = s0->y;
+    double z0 = s0->z;
+    double r0 = s0->radius;
+
+    double x1 = s1->x;
+    double y1 = s1->y;
+    double z1 = s1->z;
+    double r1 = s1->radius;
+
+    double x2 = s2->x;
+    double y2 = s2->y;
+    double z2 = s2->z;
+    double r2 = s2->radius;
+
+    double err1 = (x0-x2)*(x0-x2)+(y0-y2)*(y0-y2)+(z0-z2)*(z0-z2) - (r0+r2)*(r0+r2);
+    double err2 = (x1-x2)*(x1-x2)+(y1-y2)*(y1-y2)+(z1-z2)*(z1-z2) - (r1+r2)*(r1+r2);
+    
+    if ( (err1*err1 < 0.00001) && (err2*err2 < 0.00001))
+        return true;
+    else{
+        printf("err1 = %.3lf\nerr2 = %.3lf\n", err1, err2);
+        return false;
+    }
+}
+
+
+
+
