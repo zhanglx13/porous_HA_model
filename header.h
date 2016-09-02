@@ -1,11 +1,14 @@
 
 #include <stdbool.h>  //bool
 
-#define LENGTH   1500
-#define HEIGHT   1500
-#define WIDTH    1500
+#define LENGTH   100
+#define HEIGHT   1000
+#define WIDTH    100
 
-#define NBALLS  500
+#define REAL_H   300
+#define PI       3.1415926
+
+#define NBALLS  5000
 #define RA       5
 #define RB       50
 
@@ -50,7 +53,9 @@ void rand_init_position(double *, double *, struct Container, double);
 void update_sphere(struct Sphere*, struct Container *);
 void update_container(struct Sphere*, struct Container*);
 bool collide_z(struct Sphere, struct Sphere);
-void simulate(double, unsigned int, unsigned int, struct Container *);
+void simulate(double, unsigned int, unsigned int);
+void run(double);
+
 struct Sphere * find_first_collision(struct Sphere *, struct Container *);
 struct Sphere * find_second_collision(struct Sphere *, struct Sphere *, struct Container *, int *);
 struct Sphere * find_third_collision(struct Sphere *, struct Sphere *, struct Sphere *, struct Container *);
@@ -58,7 +63,9 @@ double z_collide_two(struct Sphere *, struct Sphere *, double, double*, double*)
 void solve_x_y(struct Sphere*, struct Sphere* , struct Sphere* , double, double *, double*, double*, double*);
 double compute_z_min(struct Sphere *, struct Sphere *, struct Sphere *);
 double compute_z_max(struct Sphere *, struct Sphere *, struct Sphere *);
-
+bool find_second_collision_stage_1(struct Sphere *, struct Sphere *, struct Container *);
+bool find_second_collision_stage_2(struct Sphere *, struct Sphere *, struct Container *, int *);
+struct Sphere *find_second_collision_stage_3(struct Sphere *, struct Sphere *, struct Container *, int *);
 
 /* helper functions */
 bool test_overlap(struct Container);
@@ -71,6 +78,25 @@ bool test_sphere_safety(struct Container *, struct Sphere *);
 bool test_collide(struct Sphere *, struct Sphere *, struct Sphere *);
 struct Sphere* first_collision(struct Sphere*, struct Container*, int *);
 bool touch(struct Sphere*, struct Sphere*);
+
+
+
+void run(double Rb)
+{
+    printf("\n###########################################\n");
+    printf("### Running experiment with Rb = %.3lf ###\n", Rb);
+    printf("###########################################\n");
+
+    unsigned int Na = 50;
+    unsigned int nb;
+    for (nb = 5; nb <= 500 ; nb += 50){
+        printf("--- NB = %u ---\n", nb);
+        simulate(Rb, Na, nb);
+    }
+
+}
+
+
 
 bool touch(struct Sphere* s0, struct Sphere* s1)
 {
@@ -152,9 +178,9 @@ bool overlap(struct Sphere s0, struct Sphere s1)
     double delta_z = s0.z - s1.z; 
     double dist = delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
     double sum_radius = (s0.radius + s1.radius)*(s0.radius + s1.radius);
-    double diff = dist - sum_radius;
+    double diff = sqrt(dist) - sqrt(sum_radius);
     // Due to the existance of numerical error, the condition for overlap is released.
-    if (diff < -0.0001){
+    if (diff < -0.01){
         // printf("Ball %u (%.3lf, %.3lf, %.3lf) collides with ball %u (%.3lf, %.3lf, %.3lf)\n", s0.id, s0.x, s0.y, s0.z, s1.id, s1.x, s1.y, s1.z );
         // printf("dist = %.3lf\n", dist);
         // printf("sum_radius = %.3lf\n", sum_radius);
@@ -176,27 +202,37 @@ bool test_overlap(struct Container container)
     struct sphere_list *first, *second;
     first = container.head;
     second = container.head;
+    bool flag = false;
     while(first != NULL){
         // first test container boudary safety
         if (!safe_container_boundary_sphere(&container, first->sphere))
         {
             printf("sphere %u (%.3lf, %.3lf, %.3lf, %.3lf) hit the container!!\n", first->sphere->id, first->sphere->x, first->sphere->y, first->sphere->z, first->sphere->radius);
-            return true;
+            flag = true;
+            //return true;
         }
         // second test if two balls collide
         second = first->next;
         while(second != NULL){
             if (overlap(*(first->sphere), *(second->sphere))){
                 printf("ball %u(%.3lf, %.3lf, %.3lf, %.3lf) and %u(%.3lf, %.3lf, %.3lf, %.3lf) collided\n", 
-               first->sphere->id, first->sphere->x, first->sphere->y, first->sphere->z, first->sphere->radius, 
-               second->sphere->id, second->sphere->x, second->sphere->y, second->sphere->z, second->sphere->radius);
-                return true;
+                       first->sphere->id, first->sphere->x, first->sphere->y, first->sphere->z, first->sphere->radius, 
+                       second->sphere->id, second->sphere->x, second->sphere->y, second->sphere->z, second->sphere->radius);
+                double delta_x = first->sphere->x - second->sphere->x;
+                double delta_y = first->sphere->y - second->sphere->y;
+                double delta_z = first->sphere->z - second->sphere->z; 
+                double dist = delta_x * delta_x + delta_y * delta_y + delta_z * delta_z;
+                double sum_radius = (first->sphere->radius + second->sphere->radius)*(first->sphere->radius + second->sphere->radius);
+                double diff = sqrt(dist) - sqrt(sum_radius);
+                printf("diff = %.5lf\ndist = %.5lf\n", diff, dist);
+                flag = true;
+                //return true;
             }
             second = second->next;
         }
         first = first->next;
     }
-    return false;
+    return flag;
 }
 
 
@@ -228,6 +264,11 @@ void update_container(struct Sphere *sphere, struct Container *container)
         printf("Empty container\n");
     if (new_sphere == NULL)
         printf("Empty new sphere\n");
+
+    if (test_overlap(*container)){
+        printf("Overlap detected after updating sphere %u\n", sphere->id);
+        exit(1);
+    }
 }
 
 
@@ -392,6 +433,11 @@ double z_collide_two(struct Sphere *s0, struct Sphere *s1, double r, double *x, 
  */
 struct Sphere * find_first_collision(struct Sphere *sphere, struct Container *container)
 {
+    if(test_overlap(*container)){
+        printf("Detect overlap at the beginning of find_first_collision for sphere %u\n", sphere->id);
+        exit(1);
+    }
+    //printf("Finding first collision for sphere %u (%.3lf, %.3lf, %.3lf, %.3lf)\n", sphere->id, sphere->x, sphere->y, sphere->z, sphere->radius);
     struct sphere_list *slist = container->head;
     struct Sphere *sphere_hit = (struct Sphere*)malloc(sizeof(struct Sphere));
     sphere_hit = NULL;
